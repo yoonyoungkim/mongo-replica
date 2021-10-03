@@ -1,0 +1,58 @@
+version: "3.8"
+
+services:
+  mongo1:
+    image: mongo:4.2
+    container_name: mongo1
+    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "30001"]
+    volumes:
+      - ./data/mongo-1:/data/db
+      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "30001:30001"
+    environment:
+      - MONGO_INITDB_DATABASE=sally-2021
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+    healthcheck:
+      test: test $$(echo "rs.initiate({_id:'my-replica-set',members:[{_id:0,host:\"mongo1:30001\"},{_id:1,host:\"mongo2:30002\"},{_id:2,host:\"mongo3:30003\"}]}).ok || rs.status().ok" | mongo --port 30001 --quiet) -eq 1
+      interval: 10s
+      start_period: 30s
+    networks:
+      - local_sally
+  mongo2:
+    image: mongo:4.2
+    container_name: mongo2
+    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "30002"]
+    volumes:
+      - ./data/mongo-2:/data/db
+    ports:
+      - "30002:30002"
+    networks:
+      - local_sally
+  mongo3:
+    image: mongo:4.2
+    container_name: mongo3
+    command: ["--replSet", "my-replica-set", "--bind_ip_all", "--port", "30003"]
+    volumes:
+      - ./data/mongo-3:/data/db
+    ports:
+      - "30003:30003"
+    networks:
+      - local_sally
+  redis:
+    container_name: sally-redis
+    image: redis:6.2
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - local_sally
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 1s
+      timeout: 3s
+      retries: 3
+
+networks:
+  local_sally:
